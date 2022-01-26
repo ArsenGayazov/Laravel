@@ -16,6 +16,92 @@ use Illuminate\Support\Facades\Artisan;
 |
 */
 
+Artisan::command('parseEkatalog', function () {
+
+    $url = 'https://www.e-katalog.ru/ek-list.php?katalog_=189&search_=rtx+3090';
+
+    $data = file_get_contents($url);
+
+    $dom = new DomDocument();
+    @$dom->loadHTML($data);
+
+    $xpath = new DomXPath($dom);
+    $totalProductsString = $xpath->query("//span[@class='t-g-q']")[0]->nodeValue ?? false;
+
+    preg_match_all('/\d+/', $totalProductsString, $matches);
+    $totalProducts = (int) $matches[0][0];
+    
+    $divs = $xpath->query("//div[@class='model-short-div list-item--goods   ']");
+
+    $productsOnOnePage = $divs->length;
+
+    $pages = ceil($totalProducts / $productsOnOnePage);
+
+    $products = [];
+    foreach ($divs as $div) {
+        $a = $xpath->query("descendant::a[@class='model-short-title no-u']", $div);
+        $name = $a[0]->nodeValue;
+
+        $price = 'Нет в наличии';
+        $ranges = $xpath->query("descendant::div[@class='model-price-range']", $div);
+
+        if ($ranges->length == 1) {
+            foreach ($ranges[0]->childNodes as $child) {
+                if ($child->nodeName == 'a') {
+                    $price = 'от ' . $child->nodeValue;
+                }
+            }
+        }
+
+        $ranges = $xpath->query("descendant::div[@class='pr31 ib']", $div);
+        if ($ranges->length == 1) {
+            $price = $ranges[0]->nodeValue;
+        }
+        $products[] = [
+            'name' => $name,
+            'price' => $price
+        ];
+    }
+
+    for ($i = 1; $i < $pages; $i++) {
+        $nextUrl = "$url&page_=$i";
+    
+        $data = file_get_contents($nextUrl);
+
+        $dom = new DomDocument();
+        @$dom->loadHTML($data);
+    
+        $xpath = new DomXPath($dom);
+        $divs = $xpath->query("//div[@class='model-short-div list-item--goods   ']");
+    
+        foreach ($divs as $div) {
+            $a = $xpath->query("descendant::a[@class='model-short-title no-u']", $div);
+            $name = $a[0]->nodeValue;
+    
+            $price = 'Нет в наличии';
+            $ranges = $xpath->query("descendant::div[@class='model-price-range']", $div);
+    
+            if ($ranges->length == 1) {
+                foreach ($ranges[0]->childNodes as $child) {
+                    if ($child->nodeName == 'a') {
+                        $price = 'от ' . $child->nodeValue;
+                    }
+                }
+            }
+            
+            $ranges = $xpath->query("descendant::div[@class='pr31 ib']", $div);
+            if ($ranges->length == 1) {
+                $price = $ranges[0]->nodeValue;
+            }
+            $products[] = [
+                'name' => $name,
+                'price' => $price
+            ];
+        }
+    }
+
+});
+
 Artisan::command('massCategoriesInsert', function () {
 
     $categories = [
