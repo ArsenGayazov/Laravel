@@ -16,6 +16,29 @@ use Illuminate\Support\Facades\Artisan;
 |
 */
 
+Artisan::command('importCategoriesFromFile', function () {
+    
+    $file = fopen('categories.csv', 'r');
+
+    $i = 0;
+    $insert = [];
+    while ($row = fgetcsv($file, 1000, ';')) {
+        if ($i++ == 0) {
+            $bom = pack('H*','EFBBBF');
+            $row = preg_replace("/^$bom/", '', $row);
+            $columns = $row;
+            continue;
+        }
+
+        $data = array_combine($columns, $row);
+        $data['created_at'] = date('Y-m-d H:i:s');
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        $insert[] = $data;  
+    }
+
+    Category::insert($insert);
+});        
+
 Artisan::command('parseEkatalog', function () {
 
     $url = 'https://www.e-katalog.ru/ek-list.php?katalog_=189&search_=rtx+3090';
@@ -100,6 +123,11 @@ Artisan::command('parseEkatalog', function () {
         }
     }
 
+    $file = fopen('videocards.csv', 'w');
+    foreach ($products as $product) {
+        fputcsv($file, $product, ';');
+    }
+    fclose($file);
 });
 
 Artisan::command('massCategoriesInsert', function () {
